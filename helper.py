@@ -76,7 +76,6 @@ taf_dict = {
 }
 
 def parse_sigmet(text):
-    # Extract SIGMET info
     sigmet_id = re.search(r'CONVECTIVE SIGMET (\d+[A-Z])', text)
     valid_until = re.search(r'VALID UNTIL (\d{4})Z', text)
     movement = re.search(r'MOV FROM (\d{3})(\d{2})KT', text)
@@ -85,7 +84,6 @@ def parse_sigmet(text):
     outlook_time = re.search(r'OUTLOOK VALID (\d{6})-(\d{6})', text)
     outlook_area = re.search(r'OUTLOOK VALID.*?FROM (.+?)WST', text, re.DOTALL)
 
-    print("SIGMET Report Summary\n----------------------")
     
     if sigmet_id:
         print(f"SIGMET ID: {sigmet_id.group(1)} (Convective, Central Region)")
@@ -117,111 +115,6 @@ def parse_sigmet(text):
 
     print("\nAdditional SIGMETs may be issued. Refer to SPC for updates.")
 
-# def parse_metar(raw):
-#     components = raw.split()
-#     result = {}
-    
-
-#     i = 0
-#     if components[i] in ["METAR", "SPECI"]:
-#         result["Type"] = "Routine METAR report" if components[i] == "METAR" else "Special METAR report"
-#     else:
-#         result["Type"] = 'METAR'
-
-#     result["Station"] = components[i]
-#     i += 1
-
-#     #time
-#     time_match = re.match(r"(\d{2})(\d{2})(\d{2})Z", components[i])
-#     if time_match:
-#         day, hour, minute = time_match.groups()
-#         result["Time"] = f"{day}th at {hour}:{minute} UTC"
-#     i += 1
-
-#     #wind
-#     wind_match = re.match(r"(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT", components[i])
-#     if wind_match:
-#         direction, speed, gust = wind_match.groups()
-#         direction_text = "Variable" if direction == "VRB" else f"{direction}°"
-#         wind_desc = f"{direction_text} at {int(speed)} knots"
-#         if gust:
-#             wind_desc += f" with gusts to {int(gust[1:])} knots"
-#         result["Wind"] = wind_desc
-#     i += 1
-
-#     # Visibility
-#     if "SM" in components[i]:
-#         result["Visibility"] = f"{components[i].replace('SM', '')} statute miles"
-#         i += 1
-
-#     wx_dict = {
-#         "-SN": "Light snow",
-#         "SN": "Moderate snow",
-#         "+SN": "Heavy snow",
-#         "RA": "Rain",
-#         "-RA": "Light rain",
-#         "+RA": "Heavy rain",
-#         "BR": "Mist",
-#         "FG": "Fog",
-#         "HZ": "Haze"
-#     }
-#     if re.match(r"[-+A-Z]{2,}", components[i]):
-#         result["Weather"] = wx_dict.get(components[i], components[i])
-#         i += 1
-
-#     # Sky condition
-#     sky_match = re.match(r"(FEW|SCT|BKN|OVC)(\d{3})", components[i])
-#     if sky_match:
-#         cover, height = sky_match.groups()
-#         cover_dict = {
-#             "FEW": "Few clouds",
-#             "SCT": "Scattered clouds",
-#             "BKN": "Broken clouds",
-#             "OVC": "Overcast"
-#         }
-#         result["Sky"] = f"{cover_dict.get(cover)} at {int(height)*100} feet"
-#         i += 1
-
-#     # Temperature and dew point
-#     temp_dew = components[i]
-#     if '/' in temp_dew:
-#         temp, dew = temp_dew.split('/')
-#         result["Temperature"] = f"{int(temp)}°C" if 'M' not in temp else f"-{int(temp[1:])}°C"
-#         result["Dewpoint"] = f"{int(dew)}°C" if 'M' not in dew else f"-{int(dew[1:])}°C"
-#         i += 1
-
-#     # Altimeter
-#     if components[i].startswith("A"):
-#         alt = components[i][1:]
-#         result["Altimeter"] = f"{alt[:2]}.{alt[2:]} inHg"
-#         i += 1
-
-#     # Remarks
-#     if "RMK" in components[i:]:
-#         rmk_index = components.index("RMK")
-#         rmk_parts = components[rmk_index+1:]
-
-#         for part in rmk_parts:
-#             if part.startswith("SLP"):
-#                 result["Sea Level Pressure"] = f"{part[3:]} hPa"
-#             if part.startswith("T"):
-#                 temp = int(part[1:5])
-#                 dew = int(part[5:])
-#                 t_sign = '-' if part[0] == '1' else ''
-#                 d_sign = '-' if part[5] == '1' else ''
-#                 result["Exact Temperature"] = f"{t_sign}{temp/10:.1f}°C"
-#                 result["Exact Dewpoint"] = f"{d_sign}{dew/10:.1f}°C"
-
-#     # Format output
-#     final  = ""
-#     print("\nDecoded METAR Report:\n")
-#     for key, value in result.items():
-#         final += key
-#         final += " "
-#         final += value
-#         final += '\n'
-#         # print(f"{key}: {value}")
-#     return final
     
 def decode_wind(wind_str):
     match = re.match(r"(\d{3})(\d{2,3})(G\d{2,3})?KT", wind_str)
@@ -256,100 +149,14 @@ def parse_taf(taf_str):
     return translation 
 
 
-# def is_point_in_polygon(x, y, polygon):
-#     inside = False
-#     n = len(polygon)
-#     j = n - 1  
-
-#     for i in range(n):
-#         xi, yi = polygon[i]["lat"], polygon[i]["lon"]
-#         xj, yj = polygon[j]["lat"], polygon[j]["lon"]
-        
-#         if ((yi > y) != (yj > y)):
-#             x_intersect = (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi
-#             if x < x_intersect:
-#                 inside = not inside
-#         j = i
-
-#     return inside
-
-# def fetch_metar(airport_ids):
-#     airport_id = ''
-#     for id in airport_ids:
-#         airport_id += id
-#         airport_id += '%'
-#     airport_id = airport_id[:-1]
-
-#     url = f"https://aviationweather.gov/api/data/metar?ids={airport_id}&format=json&taf=true"
-#     response = requests.get(url)
-#     response = response.json()
-#     n = len(airport_ids)
-#     metar_taf = {}
-#     for x in range(n):
-#         airport_data = response[x]
-#         metar_taf[airport_data['icaoId']] = {
-#             # 'taf': parse_taf(airport_data['rawTaf']),
-#             'metar': parse_metar(airport_data['rawOb'])
-#         }        
-#     return metar_taf
-
-
-
 
 def fetch_taf(airport_id):
     url = f"https://aviationweather.gov/api/data/taf?ids={airport_id}&format=json"
     response = requests.get(url)
-    return response.json()  # returns a list
+    return response.json()  
 
-# def decode_wind(wind_str):
-#     match = re.match(r"(VRB|\d{3})(\d{2,3})(G\d{2,3})?KT", wind_str)
-#     if match:
-#         direction, speed, gust = match.groups()
-#         direction_str = "Variable" if direction == "VRB" else f"{direction}°"
-#         wind = f"{direction_str} at {int(speed)} knots"
-#         if gust:
-#             wind += f" with gusts to {int(gust[1:])} knots"
-#         return wind
-#     return None
 
-# def parse_taf(airport_id):
-#     taf_list = fetch_taf(airport_id)
 
-#     if not taf_list or not isinstance(taf_list, list):
-#         return f"No valid TAF data returned for {airport_id}."
-
-#     taf_raw = taf_list[0].get("rawTaf", "")
-#     if not taf_raw:
-#         return f"No TAF available for {airport_id}."
-
-#     words = taf_raw.split()
-#     result = "\nDecoded TAF Report:\n"
-
-#     for word in words:
-#         # Match known codes
-#         if word in taf_dict:
-#             result += taf_dict[word] + " "
-#         elif word in abbreviations:
-#             result += abbreviations[word] + " "
-#         elif re.match(r"\d{4}/\d{4}", word):  # Validity period
-#             start, end = word[:4], word[5:]
-#             result += f"Valid from {start[:2]}Z on day {start[2:]} to {end[:2]}Z on day {end[2:]} "
-#         elif re.match(r"\d{6}Z", word):  # Issuance time
-#             result += f"Issued at {word[:2]} day, {word[2:4]}:{word[4:6]}Z "
-#         elif word.startswith("FM") and len(word) >= 6:  # FM time block
-#             time = word[2:]
-#             result += f"From {time[:2]}Z on day {time[2:4]} at {time[4:6]}Z "
-#         elif decode_wind(word):
-#             result += decode_wind(word) + " "
-#         else:
-#             result += word + " "
-
-#     return result.strip()
-
-# def fetch_taf(airport_id):
-#     url = f"https://aviationweather.gov/api/data/taf?ids={airport_id}&format=json"
-#     response = requests.get(url)
-#     return response.json()
 
 def fetch_pirep(airport_id):
     url = f"https://aviationweather.gov/api/data/pirep?ids={airport_id}&format=json"
@@ -534,7 +341,6 @@ def summary(final):
 
 def warning_level(airport_id):
     metar = parse_metar(airport_id, 1)
-    # Define visibility and ceiling thresholds
     flight_rules = [
         ("1", lambda vis, ceil: vis >= 5 and ceil > 3000),
         ("2", lambda vis, ceil: 3 <= vis < 5 or 1000 < ceil <= 3000),
@@ -542,7 +348,6 @@ def warning_level(airport_id):
         ("4", lambda vis, ceil: vis < 1 or ceil < 500),
     ]
 
-    # Extract visibility (in statute miles)
     vis_match = re.search(r' (\d+)? ?(\d?/\d)?SM', metar)
     if vis_match:
         whole = int(vis_match.group(1)) if vis_match.group(1) else 0
@@ -555,14 +360,12 @@ def warning_level(airport_id):
     else:
         vis = None
 
-    # Extract ceiling (first OVC or BKN layer in feet)
     ceil_match = re.search(r'(OVC|BKN)(\d{3})', metar)
     ceil = int(ceil_match.group(2)) * 100 if ceil_match else None
 
     if vis is None or ceil is None:
         return 5
 
-    # Determine classification
     for rule, condition in flight_rules:
         if condition(vis, ceil):
             return int(rule)
