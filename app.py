@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import uuid
-from helper import parse_metar
+from helper import parse_metar,summary,warning_level
 from sigmet_translation import sigmet_json_generator
 from pirep_and_path import generate_quick,lat_log 
 from taf import get_formatted_taf
@@ -30,7 +30,7 @@ if 'delete_airport' not in st.session_state:
 if 'airport_data' not in st.session_state:
     st.session_state.airport_data = []
 if 'report' not in st.session_state:
-    st.session_state.report = {}
+    st.session_state.report = ''
 
 # Callbacks for actions outside the form
 if st.session_state.add_airport:
@@ -79,7 +79,8 @@ if st.button("Submit"):
         "airport_id": airport["icao"],
         "altitude": airport["altitude"],
         "lat": lat,
-        "log": lon
+        "log": lon,
+        'warning_level': warning_level(['airport_id'])
         })
 
     output_data = {"waypoints": airports}
@@ -91,14 +92,18 @@ if st.button("Submit"):
     for airport in st.session_state.airports:
         if airport["icao"]:
             # Mock data - in reality you'd fetch this from your backend
-            print(st.session_state.report)
-            # st.session_state.report = fetch_metar([airport["icao"]])
+            k = parse_metar(airport["icao"])
+            l = get_formatted_taf(airport["icao"])
             mock_data = {
                 "icao": airport["icao"],
                 "altitude": airport["altitude"],
-                "metar":parse_metar(airport["icao"]),
-                "taf": get_formatted_taf(airport["icao"]),
+                "metar":k,
+                "taf": l
             }
+            st.session_state.report += '\n'
+            st.session_state.report += k
+            st.session_state.report += '\n'
+            st.session_state.report += l
             st.session_state.airport_data.append(mock_data)
     
     st.session_state.submitted = True
@@ -144,6 +149,9 @@ if st.session_state.submitted and st.session_state.airport_data:
     try:
         with open('pireps.json', 'r', encoding='utf-8') as f:
             pirep_data = json.load(f)
+        for pirep in pirep_data['pireps']:
+            st.session_state.report += "\n"
+            st.session_state.report += pirep['summary']
     except Exception as e:
         st.error(f"Error loading pirep.json: {e}")
         pirep_data = {"pirep": []}
@@ -151,6 +159,7 @@ if st.session_state.submitted and st.session_state.airport_data:
     try:
         with open('route_weather.json', 'r', encoding='utf-8') as f:
             route_weather_data = json.load(f)
+
     except Exception as e:
         st.error(f"Error loading route_weather.json: {e}")
         route_weather_data = {"warnings": []}
@@ -160,6 +169,9 @@ if st.session_state.submitted and st.session_state.airport_data:
         sigmet_json_generator('airports_st.json')
         with open('sigmets_new.json', 'r', encoding='utf-8') as f:
             sigmet_data = json.load(f)
+        for pirep in sigmet_data['sigmet']:
+            st.session_state.report += "\n"
+            st.session_state.report += pirep['sigmet_eng']
     except Exception as e:
         st.error(f"Error loading sigmet.json: {e}")
         sigmet_data = {"sigmet": []}
@@ -248,14 +260,15 @@ if st.session_state.submitted and st.session_state.airport_data:
         const info = `Description: ${{p.description || 'N/A'}}<br>Temp: ${{p.temperature}}°C<br>Windspeed: ${{p.windspeed}}kt<br>code: ${{p.code}}`;
 
         // Create a warning icon
-        const warningIcon = L.divIcon({{
-            html: '<i class="fa fa-exclamation-triangle" style="color: #ff0000; font-size: 16px;"></i>',
-            className: 'warning-marker',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-        }});
+        L.circleMarker([p.lat, p.lon], {{
+            radius: 7,
+            fillColor: "yellow",
+            color: "yellow",
+            weight: 1,
+            fillOpacity: 0.8
+        }}).addTo(map).bindPopup(info);
   
-        L.marker([p.lat, p.lon], {{icon: warningIcon}}).addTo(map).bindPopup(info);
+        ///L.marker([p.lat, p.lon], {{icon: warningIcon}}).addTo(map).bindPopup(info);
         }});
 
 
@@ -286,24 +299,52 @@ if st.session_state.submitted and st.session_state.airport_data:
         
         // Add markers for all airports
         lowAltitudeAirports.forEach(airport => {{
-            L.marker([airport.lat, airport.log], {{
-                icon: L.divIcon({{
-                    className: 'airport-marker low-altitude',
-                    html: `<div style="width: 10px; height: 10px; background-color: black; transform: rotate(45deg);"></div>`,
-                    iconSize: [10, 10]
-                }})
-            }}).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
+            L.marker([airport.lat, airport.log]).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
+
         }});
         
         highAltitudeAirports.forEach(airport => {{
-            L.marker([airport.lat, airport.log], {{
-                icon: L.divIcon({{
-                    className: 'airport-marker high-altitude',
-                    html: `<div style="background-color: red; width: 10px; height: 10px; border-radius: 50%;"></div>`,
-                    iconSize: [10, 10]
-                }})
-            }}).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
+            L.marker([airport.lat, airport.log]).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
         }});
+
+        // Add colorful circles around airports based on flight rule category
+        lowAltitudeAirports.concat(highAltitudeAirports).forEach(airport => {{
+        const warningLevel = airport.warning_level || 5; // Default to 5 if not available
+  
+        // Define colors for different flight rules
+        let circleColor = 'grey'; // Default color for undetermined (5)
+        let circleLabel = 'UNKNOWN';
+        
+        switch(warningLevel) {{
+            case 1:
+            circleColor = '#00FF00'; // Green for VFR
+            circleLabel = 'VFR';
+            break;
+            case 2:
+            circleColor = '#FFFF00'; // Yellow for MVFR
+            circleLabel = 'MVFR';
+            break;
+            case 3:
+            circleColor = '#FF9900'; // Orange for IFR
+            circleLabel = 'IFR';
+            break;
+            case 4:
+            circleColor = '#FF0000'; // Red for LIFR
+            circleLabel = 'LIFR';
+            break;
+        }}
+        
+        // Create circle around airport
+        L.circle([airport.lat, airport.log], {{
+            color: circleColor,
+            fillColor: circleColor,
+            fillOpacity: 0.2,
+            radius: 5000, // 5km radius, adjust as needed
+            weight: 1
+        }}).addTo(map).bindTooltip(circleLabel);
+        }});
+
+        
         
         // Draw curved lines between low altitude airports if there are at least 2
         if (lowAltitudeAirports.length >= 2) {{
@@ -327,6 +368,7 @@ if st.session_state.submitted and st.session_state.airport_data:
             }}
         }}
         """
+        
 
         # Combine everything
         final_html = html_first_part + new_js + html_last_part
@@ -339,10 +381,10 @@ if st.session_state.submitted and st.session_state.airport_data:
     # Information sidebar
     st.sidebar.header("Map Information")
     st.sidebar.info("""
-    - Black squares: Low altitude airports (<9000 ft)
-    - Red circles: High altitude airports (≥9000 ft)
+    - Markers: All Airports
     - Blue circles: PIREP data points
     - Colored polygons: SIGMET warnings
+    - Yellow circles: en-route warnings
     """)
     # Display the map
     st.subheader("Flight Route Map")
@@ -351,10 +393,12 @@ if st.session_state.submitted and st.session_state.airport_data:
     # Display summary section
     st.subheader("Flight Summary")
     with st.container(border=True):
-        st.write("This is the summary of your flight plan based on the weather conditions.")
+        final = summary(st.session_state.report)
+        st.markdown(final)
+        # st.write("This is the summary of your flight plan based on the weather conditions.")
         
-        # In a real app, you would generate this summary based on the weather data
-        airport_list = ", ".join([a["icao"] for a in st.session_state.airport_data])
-        st.write(f"Flight route: {airport_list}")
-        st.write("Weather conditions appear favorable for your flight plan.")
-        st.write("No significant weather hazards detected along your route.")
+        # # In a real app, you would generate this summary based on the weather data
+        # airport_list = ", ".join([a["icao"] for a in st.session_state.airport_data])
+        # st.write(f"Flight route: {airport_list}")
+        # st.write("Weather conditions appear favorable for your flight plan.")
+        # st.write("No significant weather hazards detected along your route.")
