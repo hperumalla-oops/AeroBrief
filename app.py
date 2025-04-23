@@ -9,16 +9,14 @@ from taf import get_formatted_taf
 import time
 
 
-# def fetch_metar():
-#     return "this is awesome!!!!!\n"
-# Set page configuration
+
 st.set_page_config(layout="wide", page_title="Flight Weather Planning Tool")
 
 airports=[]
-# Title of the app
+
 st.title("Flight Weather Planning Tool")
 
-# Initialize session state variables
+
 if 'airports' not in st.session_state:
     st.session_state.airports = [{"id": str(uuid.uuid4()), "icao": "", "altitude": ""}]
 if 'submitted' not in st.session_state:
@@ -32,7 +30,7 @@ if 'airport_data' not in st.session_state:
 if 'report' not in st.session_state:
     st.session_state.report = ''
 
-# Callbacks for actions outside the form
+
 if st.session_state.add_airport:
     st.session_state.airports.append({"id": str(uuid.uuid4()), "icao": "", "altitude": ""})
     st.session_state.add_airport = False
@@ -41,12 +39,11 @@ if st.session_state.delete_airport is not None:
     st.session_state.airports = [a for a in st.session_state.airports if a["id"] != st.session_state.delete_airport]
     st.session_state.delete_airport = None
 
-# Add Airport button (outside the form)
 if st.button("➕ Add Airport"):
     st.session_state.add_airport = True
     st.rerun()
 
-# Airport input fields
+
 for i, airport in enumerate(st.session_state.airports):
     cols = st.columns([3, 2, 1])
     with cols[0]:
@@ -65,9 +62,8 @@ for i, airport in enumerate(st.session_state.airports):
                 st.session_state.delete_airport = airport["id"]
                 st.rerun()
 
-# Submit button (outside the form)
+
 if st.button("Submit"):
-    # Update airport data from form
     for airport in st.session_state.airports:
         airport["icao"] = st.session_state[f"icao_{airport['id']}"]
         airport["altitude"] = st.session_state[f"alt_{airport['id']}"]
@@ -87,11 +83,9 @@ if st.button("Submit"):
     with open("airports_st.json", "w") as f:
         json.dump(output_data, f, indent=2)
     
-    # Create airport data for display
     st.session_state.airport_data = []
     for airport in st.session_state.airports:
         if airport["icao"]:
-            # Mock data - in reality you'd fetch this from your backend
             k = parse_metar(airport["icao"])
             l = get_formatted_taf(airport["icao"])
             mock_data = {
@@ -109,21 +103,16 @@ if st.button("Submit"):
     st.session_state.submitted = True
     st.rerun()
 
-# Display airport data if submitted
 if st.session_state.submitted and st.session_state.airport_data:
-    # Display airports side by side
     num_airports = len(st.session_state.airport_data)
     
-    # Create columns for airports
     airport_cols = st.columns(num_airports)
     
-    # Display airport headers
     for i, col in enumerate(airport_cols):
         if i < len(st.session_state.airport_data):
             airport = st.session_state.airport_data[i]
             col.subheader(f"{airport['icao']} ({airport['altitude']} ft)")
     
-    # Create columns for METAR expandables
     metar_cols = st.columns(num_airports)
     for i, col in enumerate(metar_cols):
         if i < len(st.session_state.airport_data):
@@ -132,7 +121,6 @@ if st.session_state.submitted and st.session_state.airport_data:
                 with st.expander("METAR"):
                     st.text(airport["metar"])
     
-    # Create columns for TAF expandables
     taf_cols = st.columns(num_airports)
     for i, col in enumerate(taf_cols):
         if i < len(st.session_state.airport_data):
@@ -141,8 +129,7 @@ if st.session_state.submitted and st.session_state.airport_data:
                 with st.expander("TAF"):
                     st.text(airport["taf"]) ##########
 
-    # Load and display the map
-    # Load your JSON data
+
     x=generate_quick('airports_st.json')
     # while(x==False):
     #     time.sleep(1)
@@ -185,30 +172,23 @@ if st.session_state.submitted and st.session_state.airport_data:
 
     
 
-    # Read your HTML template and modify it to use the injected data
     with open('index.html', 'r', encoding='utf-8') as file:
         html_content = file.read()
 
-    # Split the HTML at the point where we want to inject our data
     split_point = html_content.find('fetch(\'pirep.json\')')
     if split_point == -1:
         st.error("Could not find the insertion point in HTML")
     else:
-        # Take everything before the fetch commands
         html_first_part = html_content[:split_point]
         
-        # Find the end of the script tag
         script_end = html_content.find('</script>', split_point)
         html_last_part = html_content[script_end:] if script_end != -1 else ""
         
-        # Create new JS that uses our injected data instead of fetching
         new_js = f"""
-          // Function to create a slightly upward curved line between two points
         function createCurvedLine(startPoint, endPoint) {{
             const latlngs = [];
-            const points = 20; // Number of points to create a smooth curve
+            const points = 20; 
             
-            // Calculate control point (for upward curve)
             const midLat = (startPoint[0] + endPoint[0]) / 2;
             const midLon = (startPoint[1] + endPoint[1]) / 2;
             const distance = Math.sqrt(
@@ -216,14 +196,11 @@ if st.session_state.submitted and st.session_state.airport_data:
                 Math.pow(endPoint[1] - startPoint[1], 2)
             );
             
-            // Make the curve higher for longer distances
-            const curveHeight = distance * 0.15; // Controls how much the curve bends upward
+            const curveHeight = distance * 0.15; 
             
-            // Create a quadratic Bezier curve
             for (let i = 0; i <= points; i++) {{
                 const t = i / points;
                 
-                // Quadratic Bezier curve formula
                 const lat = (1-t)*(1-t)*startPoint[0] + 
                            2*(1-t)*t*(midLat + curveHeight) + 
                            t*t*endPoint[0];
@@ -238,7 +215,6 @@ if st.session_state.submitted and st.session_state.airport_data:
             return latlngs;
         }}
 
-        // Data injected by Streamlit
         const pireps = {json.dumps(pirep_data['pireps'])};
         pireps.forEach(p => {{
         if (!p.lat || !p.lon) return;
@@ -253,13 +229,11 @@ if st.session_state.submitted and st.session_state.airport_data:
         }}).addTo(map).bindPopup(info);
         }});
 
-        // Add route weather warnings to the map
         const warnings = {json.dumps(route_weather_data['warnings'])};
         warnings.forEach(p => {{
         if (!p.lat || !p.lon) return;
         const info = `Description: ${{p.description || 'N/A'}}<br>Temp: ${{p.temperature}}°C<br>Windspeed: ${{p.windspeed}}kt<br>code: ${{p.code}}`;
 
-        // Create a warning icon
         L.circleMarker([p.lat, p.lon], {{
             radius: 7,
             fillColor: "yellow",
@@ -268,11 +242,9 @@ if st.session_state.submitted and st.session_state.airport_data:
             fillOpacity: 0.8
         }}).addTo(map).bindPopup(info);
   
-        ///L.marker([p.lat, p.lon], {{icon: warningIcon}}).addTo(map).bindPopup(info);
         }});
 
 
-        // SIGMET data
         const sigmets = {json.dumps(sigmet_data['sigmet'])};
         sigmets.forEach(p => {{
             if (!p.coords || p.coords.length < 3) return; // Need at least 3 points
@@ -290,14 +262,11 @@ if st.session_state.submitted and st.session_state.airport_data:
             }}).addTo(map).bindPopup(info);
         }});
 
-        // Airport data
         const waypoints = {json.dumps(airports_data['waypoints'])};
         
-        // Filter airports by altitude
         const lowAltitudeAirports = waypoints.filter(airport => airport.altitude < 9000);
         const highAltitudeAirports = waypoints.filter(airport => airport.altitude >= 9000);
         
-        // Add markers for all airports
         lowAltitudeAirports.forEach(airport => {{
             L.marker([airport.lat, airport.log]).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
 
@@ -307,12 +276,9 @@ if st.session_state.submitted and st.session_state.airport_data:
             L.marker([airport.lat, airport.log]).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
         }});
 
-        // Add colorful circles around airports based on flight rule category
         lowAltitudeAirports.concat(highAltitudeAirports).forEach(airport => {{
-        const warningLevel = airport.warning_level || 5; // Default to 5 if not available
-  
-        // Define colors for different flight rules
-        let circleColor = 'grey'; // Default color for undetermined (5)
+        const warningLevel = airport.warning_level || 5; 
+        let circleColor = 'grey'; 
         let circleLabel = 'UNKNOWN';
         
         switch(warningLevel) {{
@@ -334,7 +300,6 @@ if st.session_state.submitted and st.session_state.airport_data:
             break;
         }}
         
-        // Create circle around airport
         L.circle([airport.lat, airport.log], {{
             color: circleColor,
             fillColor: circleColor,
@@ -346,17 +311,13 @@ if st.session_state.submitted and st.session_state.airport_data:
 
         
         
-        // Draw curved lines between low altitude airports if there are at least 2
         if (lowAltitudeAirports.length >= 2) {{
-            // Sort airports west to east for connection
             lowAltitudeAirports.sort((a, b) => a.log - b.log);
             
-            // Connect the airports with curved lines
             for (let i = 0; i < lowAltitudeAirports.length - 1; i++) {{
                 const start = [lowAltitudeAirports[i].lat, lowAltitudeAirports[i].log];
                 const end = [lowAltitudeAirports[i+1].lat, lowAltitudeAirports[i+1].log];
                 
-                // Create a curved line
                 const latlngs = createCurvedLine(start, end);
                 
                 L.polyline(latlngs, {{
@@ -370,15 +331,12 @@ if st.session_state.submitted and st.session_state.airport_data:
         """
         
 
-        # Combine everything
         final_html = html_first_part + new_js + html_last_part
 
-        # Render the combined HTML
         st.subheader("Flight Route Map")
 
         components.html(final_html, height=600)
 
-    # Information sidebar
     st.sidebar.header("Map Information")
     st.sidebar.info("""
     - Markers: All Airports
@@ -386,19 +344,12 @@ if st.session_state.submitted and st.session_state.airport_data:
     - Colored polygons: SIGMET warnings
     - Yellow circles: en-route warnings
     """)
-    # Display the map
     st.subheader("Flight Route Map")
     # components.html(html_content, height=500)
     
-    # Display summary section
     st.subheader("Flight Summary")
     with st.container(border=True):
         final = summary(st.session_state.report)
         st.markdown(final)
-        # st.write("This is the summary of your flight plan based on the weather conditions.")
         
-        # # In a real app, you would generate this summary based on the weather data
-        # airport_list = ", ".join([a["icao"] for a in st.session_state.airport_data])
-        # st.write(f"Flight route: {airport_list}")
-        # st.write("Weather conditions appear favorable for your flight plan.")
-        # st.write("No significant weather hazards detected along your route.")
+   
