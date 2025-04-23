@@ -106,7 +106,7 @@ def interpolate_points(start, end, interval_nm=50):
     lons = np.linspace(start[1], end[1], steps)
     return list(zip(lats, lons))
 
-def find_weather_warnings_between_airports(airport1_json, airport2_json, threshold_nm=20, output_filename="pireps.json"):
+def find_weather_warnings_between_airports(airport1_json, airport2_json, threshold_nm=50, output_filename="pireps.json"):
 
     try:
         lat1 = airport1_json["weather"][0]["metar"][0]["lat"]
