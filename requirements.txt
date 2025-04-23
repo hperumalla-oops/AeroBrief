@@ -2,3 +2,4 @@ streamlit
 geopy
 requests
 numpy
+groq 
