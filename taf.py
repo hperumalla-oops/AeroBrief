@@ -85,7 +85,7 @@ def get_formatted_taf(airport_code):
         elif re.match(r"\d{4}SM", word):
             current_segment.append(f"– Visibility: {int(word[:4]) / 100.0} statute miles")
         else:
-            # maybe a cloud code like SCT020
+
             cloud_match = re.match(r"([A-Z]{3})(\d{3})", word)
             if cloud_match:
                 code, altitude = cloud_match.groups()
