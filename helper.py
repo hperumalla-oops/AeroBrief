@@ -1,5 +1,7 @@
 import re
 import requests
+from groq import Groq
+
 
 abbreviations = {
     "ABV": "above",
@@ -293,30 +295,6 @@ def parse_taf(taf_str):
 
 
 
-import requests
-import re
-
-# Your provided dictionaries
-# taf_dict = {
-#     "SKC": "Sky clear", "NSC": "No significant clouds",
-#     "FEW": "Few clouds (1/8 - 2/8)", "SCT": "Scattered clouds (3/8 - 4/8)",
-#     "BKN": "Broken clouds (5/8 - 7/8)", "OVC": "Overcast (8/8)",
-#     "SN": "Snow", "RA": "Rain", "BR": "Mist", "FG": "Fog", "HZ": "Haze",
-#     "-": "Light", "+": "Heavy", "VC": "In the vicinity", "SH": "Showers",
-#     "TS": "Thunderstorms", "DZ": "Drizzle", "FM": "From", "TEMPO": "Temporary",
-#     "PROB30": "30% probability", "PROB40": "40% probability",
-#     "P6SM": "Visibility greater than 6 statute miles",
-#     "VV///": "Vertical visibility unknown"
-# }
-
-# abbreviations = {
-#     "ABV": "above", "CNL": "cancelled", "CTA": "control area",
-#     "FCST": "forecast", "FIR": "Flight Information Region", "FL": "flight level",
-#     "FT": "feet", "INTSF": "intensifying", "KT": "knots", "KMH": "kilometres per hour",
-#     "M": "meters", "MOV": "moving", "NC": "no change", "NM": "nautical miles",
-#     "OBS": "observed", "SFC": "surface", "STNR": "stationary", "TOP": "top of cloud",
-#     "WI": "within", "WKN": "weakening", "Z": "UTC"
-# }
 
 def fetch_taf(airport_id):
     url = f"https://aviationweather.gov/api/data/taf?ids={airport_id}&format=json"
@@ -397,13 +375,17 @@ def fetch_metar(airport_id):
     response = requests.get(url)
     return response.json()
 
-def parse_metar(airport_id):
+def parse_metar(airport_id,yes=0):
     metar_list = fetch_metar(airport_id)
 
     if not metar_list or not isinstance(metar_list, list):
         return f"No valid METAR data returned for {airport_id}."
 
     metar_entry = metar_list[0]  # Use only the first METAR
+
+    if yes:
+        #print(metar_entry)
+        return metar_entry['rawOb']
 
     result = {}
 
@@ -530,8 +512,67 @@ def parse_metar(airport_id):
 
     return final
 
+
+def summary(final):
+    client = Groq(api_key='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')
+    completion = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{
+            "role":"system", "content": "You brief pilots on the weather and give them the import details of their flight plan DO NOT SAY ANYTHING EXTRA"
+        },
+        {
+            "role":"user", "content": final
+        }],
+        temperature=1,
+        max_completion_tokens=8192,
+        top_p=1,
+        stream=False,
+        stop=None,
+    )
+
+    return completion.choices[0].message.content
+
+def warning_level(airport_id):
+    metar = parse_metar(airport_id, 1)
+    # Define visibility and ceiling thresholds
+    flight_rules = [
+        ("1", lambda vis, ceil: vis >= 5 and ceil > 3000),
+        ("2", lambda vis, ceil: 3 <= vis < 5 or 1000 < ceil <= 3000),
+        ("3", lambda vis, ceil: 1 <= vis < 3 or 500 <= ceil <= 1000),
+        ("4", lambda vis, ceil: vis < 1 or ceil < 500),
+    ]
+
+    # Extract visibility (in statute miles)
+    vis_match = re.search(r' (\d+)? ?(\d?/\d)?SM', metar)
+    if vis_match:
+        whole = int(vis_match.group(1)) if vis_match.group(1) else 0
+        frac = vis_match.group(2)
+        if frac:
+            num, den = map(int, frac.split('/'))
+            vis = whole + num / den
+        else:
+            vis = whole
+    else:
+        vis = None
+
+    # Extract ceiling (first OVC or BKN layer in feet)
+    ceil_match = re.search(r'(OVC|BKN)(\d{3})', metar)
+    ceil = int(ceil_match.group(2)) * 100 if ceil_match else None
+
+    if vis is None or ceil is None:
+        return 5
+
+    # Determine classification
+    for rule, condition in flight_rules:
+        if condition(vis, ceil):
+            return int(rule)
+
+    return 5
+
+
+parse_metar("KLAX",1)
 # k = fetch_metar(["KANK"])
-print(parse_metar("KANK"))
+# print(parse_metar("KANK"))
 # print(parse_taf(["KANK"]))
 
 
