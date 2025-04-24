@@ -255,11 +255,17 @@ if st.session_state.submitted and st.session_state.airport_data:
             
             const color = getSeverityColor(p.severity);
             
+            
+            map.createPane('sigmetPane');
+            map.getPane('sigmetPane').style.zIndex = 200; // Lower than markers (default 400)
+
             L.polygon(latlngs, {{
                 color: color,
                 weight: 2,
-                fillOpacity: 0.4
+                fillOpacity: 0.4,
+                pane: 'sigmetPane'
             }}).addTo(map).bindPopup(info);
+
         }});
 
         const waypoints = {json.dumps(airports_data['waypoints'])};
