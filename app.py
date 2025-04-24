@@ -185,6 +185,16 @@ if st.session_state.submitted and st.session_state.airport_data:
         html_last_part = html_content[script_end:] if script_end != -1 else ""
         
         new_js = f"""
+        
+        map.createPane('sigmetPane');
+        map.getPane('sigmetPane').style.zIndex = 400;
+
+        map.createPane('airportPane');
+        map.getPane('airportPane').style.zIndex = 500;
+
+        map.createPane('pirepPane');
+        map.getPane('pirepPane').style.zIndex = 600;
+        
         function createCurvedLine(startPoint, endPoint) {{
             const latlngs = [];
             const points = 20; 
@@ -221,6 +231,7 @@ if st.session_state.submitted and st.session_state.airport_data:
         const info = `${{p.summary || 'N/A'}}`;
 
         L.circleMarker([p.lat, p.lon], {{
+            pane: 'pirepPane',
             radius: 5,
             fillColor: "blue",
             color: "black",
@@ -275,7 +286,7 @@ if st.session_state.submitted and st.session_state.airport_data:
         
         lowAltitudeAirports.forEach(airport => {{
             L.marker([airport.lat, airport.log]).addTo(map).bindPopup(`${{airport.airport_id}}<br>Altitude: ${{airport.altitude}} ft`);
-
+            
         }});
         
         highAltitudeAirports.forEach(airport => {{
