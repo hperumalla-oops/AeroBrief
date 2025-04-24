@@ -284,7 +284,7 @@ def generate_quick(file_path):
             # "sigmet": sigmet
             # Add PIREP and SIGMET data here
         })
-        pirep_data.append({"pirep": pirep})
+        # pirep_data.append({"pirep": pirep})
         print("weather collected")
         
         output_airport_data={"weather": weather_data}
