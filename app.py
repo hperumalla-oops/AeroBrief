@@ -8,9 +8,13 @@ from pirep_and_path import generate_quick,lat_log
 import time
 
 
-# def fetch_metar():
-#     return "this is awesome!!!!!\n"
-# Set page configuration
+def get_dropdown_styles(color_name):
+    colors = [{"primary": "#28a745","light": "#d4edda"},{"primary": "#ffc107","light": "#fff3cd"},{"primary": "#fd7e14","light": "#ffe5b4"},{"primary": "#dc3545","light": "#f8d7da"},{"primary": "#6c757d","light": "#f1f3f5"}]
+    print(color_name)
+    print(type(color_name))
+    print('--------------------------------------------------------------🤌---')
+    return colors[color_name-1]
+
 st.set_page_config(layout="wide", page_title="Flight Weather Planning Tool")
 
 airports=[]
@@ -28,6 +32,8 @@ if 'delete_airport' not in st.session_state:
     st.session_state.delete_airport = None
 if 'airport_data' not in st.session_state:
     st.session_state.airport_data = []
+if 'report' not in st.session_state:
+    st.session_state.report = ''
 
 
 # Callbacks for actions outside the form
@@ -78,7 +84,7 @@ if st.button("Submit"):
         "altitude": airport["altitude"],
         "lat": lat,
         "lon": lon,
-        'warning_level': warning_level(['airport_id'])
+        "warning_level": warning_level(airport["icao"])
         })
 
     output_data = {"waypoints": airports}
@@ -95,10 +101,16 @@ if st.button("Submit"):
                 "icao": airport["icao"],
                 "altitude": airport["altitude"],
                 "metar":k,
-                "taf": l
+                "taf": l,
+                "warning_level": warning_level(airport["icao"])
             }
-            
+            st.session_state.report += '\n'
+            st.session_state.report += k
+            st.session_state.report += '\n'
+            st.session_state.report += l
             st.session_state.airport_data.append(mock_data)
+            
+            
     
     st.session_state.submitted = True
     st.rerun()
@@ -123,17 +135,80 @@ if st.session_state.submitted and st.session_state.airport_data:
         if i < len(st.session_state.airport_data):
             airport = st.session_state.airport_data[i]
             with col:
-                with st.expander("METAR"):
-                    st.text(airport["metar"])
+                style = get_dropdown_styles(airport["warning_level"])
+                st.markdown(f"""
+                                <style>
+                                .custom-expander > summary {{
+                                    background-color: {style['primary']};
+                                    color: white;
+                                    padding: 10px;
+                                    border-radius: 10px;
+                                    cursor: pointer;
+                                    font-size: 18px;
+                                    font-weight: bold;
+                                }}
+
+                                .custom-expander[open] > summary {{
+                                    border-bottom-left-radius: 0;
+                                    border-bottom-right-radius: 0;
+                                }}
+
+                                .custom-expander {{
+                                    border: 2px solid {style['primary']};
+                                    border-radius: 10px;
+                                    margin-bottom: 1rem;
+                                }}
+                                </style>
+                            """, unsafe_allow_html=True)
+
+                st.markdown(f"""
+                            <details class="custom-expander">
+                            <summary>METAR</summary>
+                            <div style='padding: 15px; color: black; background-color: {style['light']}; border-top: 2px solid {style['primary']};'>
+                                <p>{airport['metar'].replace('\n', '<br>')}</p>
+                            </div>
+                            </details>
+                            """, unsafe_allow_html=True)
     
-    # Create columns for TAF expandables
     taf_cols = st.columns(num_airports)
     for i, col in enumerate(taf_cols):
         if i < len(st.session_state.airport_data):
             airport = st.session_state.airport_data[i]
             with col:
-                with st.expander("TAF"):
-                    st.text(airport["taf"]) ##########
+                style = get_dropdown_styles(airport["warning_level"])
+                st.markdown(f"""
+                                <style>
+                                .custom-expander > summary {{
+                                    background-color: {style['primary']};
+                                    color: white;
+                                    padding: 10px;
+                                    border-radius: 10px;
+                                    cursor: pointer;
+                                    font-size: 18px;
+                                    font-weight: bold;
+                                }}
+
+                                .custom-expander[open] > summary {{
+                                    border-bottom-left-radius: 0;
+                                    border-bottom-right-radius: 0;
+                                }}
+
+                                .custom-expander {{
+                                    border: 2px solid {style['primary']};
+                                    border-radius: 10px;
+                                    margin-bottom: 1rem;
+                                }}
+                                </style>
+                            """, unsafe_allow_html=True)
+                st.markdown(f"""
+                            <details class="custom-expander">
+                            <summary>TAF</summary>
+                            <div style='padding: 15px;color: black; background-color: {style['light']}; border-top: 2px solid {style['primary']};'>
+                                <p>{airport['taf'].replace('\n', '<br>')}</p>
+                            </div>
+                            </details>
+                            """, unsafe_allow_html=True) ##########
+
 
     # Load and display the map
     # Load your JSON data
@@ -146,10 +221,15 @@ if st.session_state.submitted and st.session_state.airport_data:
     with open('pireps.json', 'r', encoding='utf-8') as f:
         pirep_data = json.load(f)
         ##print(pirep_data)
+    if not pirep_data.get('pireps'):
+        st.warning("No significant PIREPs found near the flight path.")
         
     with open('route_weather.json', 'r', encoding='utf-8') as f:
         route_weather_data = json.load(f)
         #print(route_weather_data)
+
+    if not route_weather_data.get('warnings'):
+            st.warning("No significant weather conditions detected near the flight path.")
 
 
     sigmet_json_generator('airports_st.json')
@@ -330,15 +410,30 @@ if st.session_state.submitted and st.session_state.airport_data:
     - Blue circles: PIREP data points
     - Colored polygons: SIGMET warnings
     - Yellow circles: en-route warnings
-    - Large translucent circles at the airports:VFR indicators
     """)
+    st.subheader("Flight Route Map")
+    st.sidebar.header("KEY VALUES")
+    st.sidebar.info("""
+    - VFR: GREEN
+    - MFR: YELLOW
+    - IFR: ORANGE
+    - LIFR: RED
+    - UNKOWN: GREY 
+                    """)
     
     
     # Display summary section
     st.subheader("Flight Summary")
     with st.container(border=True):
         final = summary()
-        st.markdown(final)
+        st.markdown(
+        f"""
+        <div style="background-color: #E3F2FD; padding: 15px; border-radius: 10px; color: #0D47A1; font-family: 'Courier New', monospace;">
+        <pre style="white-space: pre-wrap; word-wrap: break-word;">{final}</pre>
+        </div>
+        """,
+        unsafe_allow_html=True
+        )
         # st.write("This is the summary of your flight plan based on the weather conditions.")
         
         # # In a real app, you would generate this summary based on the weather data
