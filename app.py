@@ -139,7 +139,7 @@ if st.session_state.submitted and st.session_state.airport_data:
                 st.markdown(f"""
                                 <style>
                                 .custom-expander > summary {{
-                                    background-color: #{style['primary']};
+                                    background-color: {style['primary']};
                                     color: white;
                                     padding: 10px;
                                     border-radius: 10px;
@@ -154,7 +154,7 @@ if st.session_state.submitted and st.session_state.airport_data:
                                 }}
 
                                 .custom-expander {{
-                                    border: 2px solid #{style['primary']};
+                                    border: 2px solid {style['primary']};
                                     border-radius: 10px;
                                     margin-bottom: 1rem;
                                 }}
@@ -179,7 +179,7 @@ if st.session_state.submitted and st.session_state.airport_data:
                 st.markdown(f"""
                                 <style>
                                 .custom-expander > summary {{
-                                    background-color: #{style['primary']};
+                                    background-color: {style['primary']};
                                     color: white;
                                     padding: 10px;
                                     border-radius: 10px;
@@ -194,7 +194,7 @@ if st.session_state.submitted and st.session_state.airport_data:
                                 }}
 
                                 .custom-expander {{
-                                    border: 2px solid #{style['primary']};
+                                    border: 2px solid {style['primary']};
                                     border-radius: 10px;
                                     margin-bottom: 1rem;
                                 }}
