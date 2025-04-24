@@ -78,47 +78,47 @@ taf_dict = {
     "VV///": "Vertical visibility unknown",
 }
 
-def parse_sigmet(text):
-    # Extract SIGMET info
-    sigmet_id = re.search(r'CONVECTIVE SIGMET (\d+[A-Z])', text)
-    valid_until = re.search(r'VALID UNTIL (\d{4})Z', text)
-    movement = re.search(r'MOV FROM (\d{3})(\d{2})KT', text)
-    tops = re.search(r'TOPS TO FL(\d+)', text)
-    area_match = re.search(r'FROM (.+?)DMSHG', text, re.DOTALL)
-    outlook_time = re.search(r'OUTLOOK VALID (\d{6})-(\d{6})', text)
-    outlook_area = re.search(r'OUTLOOK VALID.*?FROM (.+?)WST', text, re.DOTALL)
+# def parse_sigmet(text):
+#     # Extract SIGMET info
+#     sigmet_id = re.search(r'CONVECTIVE SIGMET (\d+[A-Z])', text)
+#     valid_until = re.search(r'VALID UNTIL (\d{4})Z', text)
+#     movement = re.search(r'MOV FROM (\d{3})(\d{2})KT', text)
+#     tops = re.search(r'TOPS TO FL(\d+)', text)
+#     area_match = re.search(r'FROM (.+?)DMSHG', text, re.DOTALL)
+#     outlook_time = re.search(r'OUTLOOK VALID (\d{6})-(\d{6})', text)
+#     outlook_area = re.search(r'OUTLOOK VALID.*?FROM (.+?)WST', text, re.DOTALL)
 
-    #print("SIGMET Report Summary\n----------------------")
+#     #print("SIGMET Report Summary\n----------------------")
     
-    if sigmet_id:
-        #print(f"SIGMET ID: {sigmet_id.group(1)} (Convective, Central Region)")
+#     if sigmet_id:
+#         #print(f"SIGMET ID: {sigmet_id.group(1)} (Convective, Central Region)")
 
-    if valid_until:
-        #print(f"Valid Until: {valid_until.group(1)} UTC")
+#     if valid_until:
+#         #print(f"Valid Until: {valid_until.group(1)} UTC")
 
-    if area_match:
-        area_points = area_match.group(1).strip().replace("\n", " ").split("-")
-        #print("\nAffected Area (polygon points):")
-        for point in area_points:
-            #print(f" - {point.strip()}")
+#     if area_match:
+#         area_points = area_match.group(1).strip().replace("\n", " ").split("-")
+#         #print("\nAffected Area (polygon points):")
+#         for point in area_points:
+#             #print(f" - {point.strip()}")
 
-    if "DMSHG AREA TS" in text:
-        #print("\nWeather: Area-wide thunderstorms (diminishing)")
+#     if "DMSHG AREA TS" in text:
+#         #print("\nWeather: Area-wide thunderstorms (diminishing)")
 
-    if movement:
-        #print(f"Movement: From {movement.group(1)}° at {movement.group(2)} knots")
+#     if movement:
+#         #print(f"Movement: From {movement.group(1)}° at {movement.group(2)} knots")
 
-    if tops:
-        #print(f"Cloud Tops: Up to {tops.group(1)} flight level (approx. {int(tops.group(1))*100} ft)")
+#     if tops:
+#         #print(f"Cloud Tops: Up to {tops.group(1)} flight level (approx. {int(tops.group(1))*100} ft)")
 
-    if outlook_time and outlook_area:
-        outlook_coords = outlook_area.group(1).strip().replace("\n", " ").split("-")
-        #print(f"\nOutlook Forecast Time: {outlook_time.group(1)} UTC to {outlook_time.group(2)} UTC")
-        #print("Forecast Area:")
-        for point in outlook_coords:
-            #print(f" - {point.strip()}")
+#     if outlook_time and outlook_area:
+#         outlook_coords = outlook_area.group(1).strip().replace("\n", " ").split("-")
+#         #print(f"\nOutlook Forecast Time: {outlook_time.group(1)} UTC to {outlook_time.group(2)} UTC")
+#         #print("Forecast Area:")
+#         for point in outlook_coords:
+#             #print(f" - {point.strip()}")
 
-    #print("\nAdditional SIGMETs may be issued. Refer to SPC for updates.")
+#     #print("\nAdditional SIGMETs may be issued. Refer to SPC for updates.")
 
 def is_point_in_polygon(x, y, polygon):
     inside = False
@@ -439,7 +439,7 @@ def fetch_metar_new(airport_ids):
             }        
         return metar_taf
     except:
-        #print(x)
+        print(x)
 
 def parse_metar_new(raw):
     components = raw.split()
@@ -597,41 +597,81 @@ def summary():
     return completion.choices[0].message.content
 
 def warning_level(airport_id):
-    metar = parse_metar(airport_id, 1)
-    # Define visibility and ceiling thresholds
-    flight_rules = [
-        ("1", lambda vis, ceil: vis >= 5 and ceil > 3000),
-        ("2", lambda vis, ceil: 3 <= vis < 5 or 1000 < ceil <= 3000),
-        ("3", lambda vis, ceil: 1 <= vis < 3 or 500 <= ceil <= 1000),
-        ("4", lambda vis, ceil: vis < 1 or ceil < 500),
-    ]
-
-    # Extract visibility (in statute miles)
-    vis_match = re.search(r' (\d+)? ?(\d?/\d)?SM', metar)
-    if vis_match:
-        whole = int(vis_match.group(1)) if vis_match.group(1) else 0
-        frac = vis_match.group(2)
-        if frac:
-            num, den = map(int, frac.split('/'))
-            vis = whole + num / den
-        else:
-            vis = whole
+    raw_metar = parse_metar(airport_id, 1) 
+    visibility = None
+    ceiling = None
+    ceiling_layers = []
+ 
+    parts = raw_metar.strip().split()
+ 
+    for i, part in enumerate(parts):
+        if "SM" in part:
+            vis_str = part.replace("SM", "")
+            try:
+                visibility = float(vis_str)
+            except ValueError:
+                try:
+                    if "/" in vis_str:
+                        num, denom = vis_str.split("/")
+                        visibility = float(num) / float(denom)
+                except:
+                    pass
+        elif i < len(parts) - 1 and parts[i+1] == "SM":
+            vis_parts = []
+            j = i
+            while j >= 0:
+                if parts[j][0].isdigit() or "/" in parts[j]:
+                    vis_parts.insert(0, parts[j])
+                    j -= 1
+                else:
+                    break
+ 
+            if len(vis_parts) == 1:
+                try:
+                    visibility = float(vis_parts[0])
+                except:
+                    pass
+            elif len(vis_parts) == 2:
+                try:
+                    whole = float(vis_parts[0])
+                    frac = vis_parts[1]
+                    num, denom = frac.split("/")
+                    frac_val = float(num) / float(denom)
+                    visibility = whole + frac_val
+                except:
+                    pass
+ 
+        cloud_types = ["SKC", "CLR", "NSC", "NCD", "FEW", "SCT", "BKN", "OVC"]
+ 
+        for cloud_type in cloud_types:
+            if part.startswith(cloud_type) and len(part) > len(cloud_type):
+                height_str = part[len(cloud_type):]
+                if height_str.isdigit():
+                    height = int(height_str) * 100  # Convert to feet
+                    ceiling_layers.append((cloud_type, height))
+ 
+    for layer_type, height in ceiling_layers:
+        if layer_type in ["BKN", "OVC"]:
+            if ceiling is None or height < ceiling:
+                ceiling = height
+ 
+    if ceiling is None and visibility is None:
+        flight_category = "UNKNOWN"
     else:
-        vis = None
-
-    # Extract ceiling (first OVC or BKN layer in feet)
-    ceil_match = re.search(r'(OVC|BKN)(\d{3})', metar)
-    ceil = int(ceil_match.group(2)) * 100 if ceil_match else None
-
-    if vis is None or ceil is None:
-        return 5
-
-    # Determine classification
-    for rule, condition in flight_rules:
-        if condition(vis, ceil):
-            return int(rule)
-
-    return 5
+        ceiling_value = ceiling if ceiling is not None else float('inf')
+        visibility_value = visibility if visibility is not None else float('inf')
+ 
+        if ceiling_value < 500 or visibility_value < 1:
+            flight_category = "LIFR" 
+        elif (ceiling_value < 1000) or (visibility_value < 3):
+            flight_category = "IFR"  
+        elif (ceiling_value <= 3000) or (visibility_value <= 5):
+            flight_category = "MFR"  
+        else:
+            flight_category = "VFR"   
+ 
+    d = {"VFR": 1, "MFR":2, "IFR": 3, "LIFR": 4, "UNKNOWN": 5}
+    return d[flight_category]
 
 
 # #print(fetch_metar("KLAX"))
