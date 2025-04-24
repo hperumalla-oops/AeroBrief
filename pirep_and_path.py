@@ -47,8 +47,18 @@ def summarize_pirep(raw):
 
     summary = []
 
-    if re.search(r"\bUUA\b", raw):
-        summary.append("⚠️ Urgent PIREP issued – hazardous conditions reported")
+    if "UUA" in raw:
+        summary.append("⚠️ Urgent PIREP – hazardous conditions reported")
+
+    # Location
+    ov_match = re.search(r"/OV\s+([A-Z0-9]+)", raw)
+    if ov_match:
+        summary.append(f"Location: near {ov_match.group(1)}")
+
+    # Time
+    tm_match = re.search(r"/TM\s+(\d{4})", raw)
+    if tm_match:
+        summary.append(f"Time: {tm_match.group(1)} Zulu")
 
     # Altitude
     fl_match = re.search(r"/FL(\d+)", raw)
@@ -59,44 +69,36 @@ def summarize_pirep(raw):
     # Aircraft type
     tp_match = re.search(r"/TP\s*([A-Z0-9\-]+)", raw)
     if tp_match:
-        summary.append(f"Aircraft type: {tp_match.group(1)}")
+        summary.append(f"Aircraft: {tp_match.group(1)}")
 
     # Sky condition
-    tops = re.search(r"TOPS\s+(\d+)", raw)
-    bases = re.search(r"BASES\s+(\d+)", raw)
-    if tops and bases:
-        summary.append(f"Cloud tops at {int(tops.group(1)) * 100} ft, bases at {int(bases.group(1)) * 100} ft")
-    elif tops:
-        summary.append(f"Cloud tops at {int(tops.group(1)) * 100} ft")
-    elif bases:
-        summary.append(f"Cloud bases at {int(bases.group(1)) * 100} ft")
-
-    # Location
-    ov_match = re.search(r"/OV\s+([A-Z0-9]+)", raw)
-    if ov_match:
-        summary.append(f"Reported over: {ov_match.group(1)}")
-
-    # Time
-    tm_match = re.search(r"/TM\s+(\d{4})", raw)
-    if tm_match:
-        summary.append(f"Report time: {tm_match.group(1)} Z")
+    sky_match = re.findall(r"/SK\s+([A-Z]+)(\d+)", raw)
+    if sky_match:
+        conditions = "; ".join([f"{code} at {int(height) * 100} ft" for code, height in sky_match])
+        summary.append(f"Sky: {conditions}")
 
     # Turbulence
     tb_match = re.search(r"/TB\s+(.+?)(?=\s*/|$)", raw)
     if tb_match:
-        summary.append(f"Turbulence reported: {tb_match.group(1).strip()}")
+        summary.append(f"Turbulence: {tb_match.group(1).strip()}")
 
     # Icing
     ic_match = re.search(r"/IC\s+(.+?)(?=\s*/|$)", raw)
     if ic_match:
-        summary.append(f"Icing reported: {ic_match.group(1).strip()}")
+        summary.append(f"Icing: {ic_match.group(1).strip()}")
 
-    # Weather phenomena
+    # Weather
     wx_match = re.search(r"/WX\s+([\w\s\-]+)", raw)
     if wx_match:
         summary.append(f"Weather: {wx_match.group(1).strip()}")
 
+    # Remarks
+    rm_match = re.search(r"/RM\s+(.+?)(?=$|\s*/)", raw)
+    if rm_match:
+        summary.append(f"Remarks: {rm_match.group(1).strip()}")
+
     return "; ".join(summary) if summary else "Unable to summarize PIREP."
+
 
 def interpolate_points(start, end, interval_nm=50):
     total_distance = geodesic(start, end).nm
