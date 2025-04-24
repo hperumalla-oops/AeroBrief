@@ -47,18 +47,9 @@ def summarize_pirep(raw):
 
     summary = []
 
-    if "UUA" in raw:
-        summary.append("⚠️ Urgent PIREP – hazardous conditions reported")
-
-    # Location
-    ov_match = re.search(r"/OV\s+([A-Z0-9]+)", raw)
-    if ov_match:
-        summary.append(f"Location: near {ov_match.group(1)}")
-
-    # Time
-    tm_match = re.search(r"/TM\s+(\d{4})", raw)
-    if tm_match:
-        summary.append(f"Time: {tm_match.group(1)} Zulu")
+    # Detect UUA (Urgent PIREP)
+    if re.search(r"\bUUA\b", raw):
+        summary.append("⚠️ Urgent PIREP issued – hazardous conditions reported")
 
     # Altitude
     fl_match = re.search(r"/FL(\d+)", raw)
@@ -69,36 +60,44 @@ def summarize_pirep(raw):
     # Aircraft type
     tp_match = re.search(r"/TP\s*([A-Z0-9\-]+)", raw)
     if tp_match:
-        summary.append(f"Aircraft: {tp_match.group(1)}")
+        summary.append(f"Aircraft type: {tp_match.group(1)}")
 
     # Sky condition
-    sky_match = re.findall(r"/SK\s+([A-Z]+)(\d+)", raw)
-    if sky_match:
-        conditions = "; ".join([f"{code} at {int(height) * 100} ft" for code, height in sky_match])
-        summary.append(f"Sky: {conditions}")
+    tops = re.search(r"TOPS\s+(\d+)", raw)
+    bases = re.search(r"BASES\s+(\d+)", raw)
+    if tops and bases:
+        summary.append(f"Cloud tops at {int(tops.group(1)) * 100} ft, bases at {int(bases.group(1)) * 100} ft")
+    elif tops:
+        summary.append(f"Cloud tops at {int(tops.group(1)) * 100} ft")
+    elif bases:
+        summary.append(f"Cloud bases at {int(bases.group(1)) * 100} ft")
+
+    # Location
+    ov_match = re.search(r"/OV\s+([A-Z0-9]+)", raw)
+    if ov_match:
+        summary.append(f"Reported over: {ov_match.group(1)}")
+
+    # Time
+    tm_match = re.search(r"/TM\s+(\d{4})", raw)
+    if tm_match:
+        summary.append(f"Report time: {tm_match.group(1)} Z")
 
     # Turbulence
     tb_match = re.search(r"/TB\s+(.+?)(?=\s*/|$)", raw)
     if tb_match:
-        summary.append(f"Turbulence: {tb_match.group(1).strip()}")
+        summary.append(f"Turbulence reported: {tb_match.group(1).strip()}")
 
     # Icing
     ic_match = re.search(r"/IC\s+(.+?)(?=\s*/|$)", raw)
     if ic_match:
-        summary.append(f"Icing: {ic_match.group(1).strip()}")
+        summary.append(f"Icing reported: {ic_match.group(1).strip()}")
 
-    # Weather
+    # Weather phenomena
     wx_match = re.search(r"/WX\s+([\w\s\-]+)", raw)
     if wx_match:
         summary.append(f"Weather: {wx_match.group(1).strip()}")
 
-    # Remarks
-    rm_match = re.search(r"/RM\s+(.+?)(?=$|\s*/)", raw)
-    if rm_match:
-        summary.append(f"Remarks: {rm_match.group(1).strip()}")
-
     return "; ".join(summary) if summary else "Unable to summarize PIREP."
-
 
 def interpolate_points(start, end, interval_nm=50):
     total_distance = geodesic(start, end).nm
@@ -107,7 +106,7 @@ def interpolate_points(start, end, interval_nm=50):
     lons = np.linspace(start[1], end[1], steps)
     return list(zip(lats, lons))
 
-def find_weather_warnings_between_airports(airport1_json, airport2_json, threshold_nm=100, output_filename="pireps.json"):
+def find_weather_warnings_between_airports(airport1_json, airport2_json, threshold_nm=50, output_filename="pireps.json"):
 
     try:
         lat1 = airport1_json["weather"][0]["metar"][0]["lat"]
@@ -123,7 +122,7 @@ def find_weather_warnings_between_airports(airport1_json, airport2_json, thresho
     while(x==False):
         time.sleep(1)
     
-    
+    # Combine PIREPs from both airports
     pireps = []
     if "pirep" in airport1_json["weather"][0]:
         pireps.extend(airport1_json["weather"][0]["pirep"])
@@ -140,7 +139,7 @@ def find_weather_warnings_between_airports(airport1_json, airport2_json, thresho
                 pirep_lon = pirep["lon"]
                 distance = geodesic(pt, (pirep_lat, pirep_lon)).nm
                 if distance <= threshold_nm:
-                    
+                    # Create a hashable unique key for deduplication
                     unique_key = (
                         round(pt[0], 4), round(pt[1], 4),
                         round(pirep_lat, 4), round(pirep_lon, 4),
@@ -161,7 +160,7 @@ def find_weather_warnings_between_airports(airport1_json, airport2_json, thresho
     output_data = {"pireps": warnings}
     
     
-    
+    # Save to a JSON file
     with open(output_filename, "w") as f:
         json.dump(output_data, f, indent=2)
 
@@ -204,7 +203,7 @@ def fetch_weather_for_route_points(route_points, output_filename="route_weather.
                     "is_severe": is_severe
                 
             })
-            time.sleep(0.5)  
+            time.sleep(0.5)  # avoid hammering the API
         except Exception as e:
             weather_data.append({
                 "point_index": i,
@@ -219,6 +218,8 @@ def fetch_weather_for_route_points(route_points, output_filename="route_weather.
         json.dump(output_data, f, indent=2)
 
     print(f"✅ Saved weather data for {len(route_points)} points to {output_filename}")
+    # if len(route_points)==0:
+    #     return
     return True
 
 
@@ -263,6 +264,7 @@ def generate_quick(file_path):
         altitude=waypoint.get("altitude")
         output_airport_data={}
         weather_data = []
+        pirep_dat=[]
         print(f"📍 Airport: {airport_id}]")
     
         metar = fetch_metar(airport_id)
@@ -270,6 +272,7 @@ def generate_quick(file_path):
         pirep = fetch_pirep(airport_id)
         lat,log=lat_log(airport_id)
 
+        # Similarly fetch PIREP and SIGMET
         weather_data.append({
             "airport_id": airport_id,
             "altitude": altitude,
@@ -278,8 +281,10 @@ def generate_quick(file_path):
             "metar": metar,
             "taf": taf,
             "pirep": pirep,
-
+            # "sigmet": sigmet
+            # Add PIREP and SIGMET data here
         })
+        pirep_data.append({"pirep": pirep})
         print("weather collected")
         
         output_airport_data={"weather": weather_data}
@@ -291,11 +296,30 @@ def generate_quick(file_path):
 
 
     print("lenght of list",len(final_json_list))
-     
+    # print(final_json_list[0][0][''],final_json_list[-1])
+    # with open("LA.json", "w") as f:
+    #     json.dump(final_json_list[0], f, indent=2)
+
+    # with open("TXs.json", "w") as f:
+    #     json.dump(final_json_list[-1], f, indent=2)
+    fetch_pirep("KLAX")
+
 
 
     x=find_weather_warnings_between_airports(final_json_list[0],final_json_list[-1])
     return x
 
+
+
+pirep_data=[]
+pirep=fetch_pirep("KLAX")
+pirep_data.append({"pirep": pirep})
+
+
+with open("C:\\Users\\hperu\\weather_app\\map\\pirep.json", "w") as f:
+    json.dump(pirep_data, f, indent=2)
+
+
+# get_weather("airports.json")
 
 
