@@ -295,14 +295,14 @@ def generate_quick(file_path):
         
 
 
-    print("lenght of list",len(final_json_list))
+    #print("lenght of list",len(final_json_list))
     # print(final_json_list[0][0][''],final_json_list[-1])
     # with open("LA.json", "w") as f:
     #     json.dump(final_json_list[0], f, indent=2)
 
     # with open("TXs.json", "w") as f:
     #     json.dump(final_json_list[-1], f, indent=2)
-    fetch_pirep("KLAX")
+    # fetch_pirep("KLAX")
 
 
 
@@ -311,13 +311,13 @@ def generate_quick(file_path):
 
 
 
-pirep_data=[]
-pirep=fetch_pirep("KLAX")
-pirep_data.append({"pirep": pirep})
+# pirep_data=[]
+# pirep=fetch_pirep("KLAX")
+# pirep_data.append({"pirep": pirep})
 
 
-with open("C:\\Users\\hperu\\weather_app\\map\\pirep.json", "w") as f:
-    json.dump(pirep_data, f, indent=2)
+# with open("C:\\Users\\hperu\\weather_app\\map\\pirep.json", "w") as f:
+#     json.dump(pirep_data, f, indent=2)
 
 
 # get_weather("airports.json")
